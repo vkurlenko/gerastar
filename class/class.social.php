@@ -1,0 +1,7 @@
+<?
+class SOCIAL
+{
+	//public 
+}
+
+?>

@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /forum
+
+User-Agent: Yandex
+Allow: /
+Disallow: /forum
+Host: magazine.gerastar.ru
+
+Sitemap: http://magazine.gerastar.ru/sitemap.xml

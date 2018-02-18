@@ -1,0 +1,339 @@
+<?
+session_start();
+include_once "../config.php" ;
+include_once "../fckeditor/fckeditor.php";
+include_once "../db.php";
+include_once 'f.php';
+
+check_access(array("admin", "editor"));
+
+$table_alb = $_VARS['tbl_photo_alb_name'];
+
+$table_pic = SITE_PREFIX.'_pic';
+
+
+/*$sql = "SELECT * FROM `$table_name`
+		WHERE 1";
+
+$res = mysql_query($sql);
+
+while($row = mysql_fetch_array($res))
+{
+	//$newId = intval($row['alb_name']);
+	$sql = "UPDATE `$table_alb` 
+			SET alb_order = ".$row['id']."
+			WHERE id = '".$row['id']."'";
+	echo $sql."<br>";
+	$res1 = mysql_query($sql);
+}*/
+
+
+
+$arrAlbMark = array(
+	"none" 		=> "без метки"/*,
+	"gallery" 	=> "галерея",	
+	"collection"=> "коллекция",
+	"gworld"	=> "мир жантиль",
+	"portfolio" => "портфолио"*/
+);
+
+
+
+
+
+CreateTable();
+
+
+// создать новый альбом
+if(isset($set_item))
+{
+	$res = AddItem($alb_parent, $alb_title, $alb_text, @$alb_mark);
+	
+	if($res)
+		header('location:/'.$_VARS['cms_dir'].'/workplace.php?page=photo_alb');
+}
+
+// редактировать альбом
+if(isset($update_item) and isset($id))
+{	
+	$res = UpdateItem($id, $alb_parent, $alb_title, @$alb_video, @$alb_text, $alb_img, $alb_mark);
+
+	if($res)
+		header('location:/'.$_VARS['cms_dir'].'/workplace.php?page=photo_alb');
+}
+
+// перемещение (сортировка)
+if(isset($move) and isset($dir) and isset($id))
+{
+	MoveItem($id, $dir, $parent);
+}
+
+// удалить альбом
+if(isset($del_item) and isset($alb_id))
+{
+	DelItem($alb_id);
+	//DropTable($alb_id);
+	DeleteDir($alb_id);
+}
+
+
+?>
+<?
+include_once "head.php";
+?>
+
+<body>
+<?
+if(isset($edit_item) and isset($id))
+{
+	$sql = "SELECT * FROM `$table_alb` 
+			WHERE id='$id'";
+	$res = mysql_query($sql);
+	$row = mysql_fetch_array($res);
+	?>
+	<strong style="padding:20px; display:block">Редактирование</strong>
+	<form method="post" enctype="multipart/form-data" action="" name="form2" id="form2">
+	<table>
+		<tr>
+			<td>Название</td>
+			<td>
+			<input type="text" name="alb_title" value="<?=$row['alb_title']?>" size="83" />
+			<input type="hidden" name="id" value="<?=$row['id']?>" />
+			</td>
+		</tr>
+		<tr>
+			<td>Родительский альбом</td>
+			<td><select name="alb_parent">
+			<?
+			$check_val = $row['alb_parent'];
+			echo $check_val;
+			include 'photo_alb_select.php';
+			?></select>
+			</td>
+		</tr>
+		<tr>
+			<td>Картинка превью</td>
+			<td><select name="alb_img" >
+			<?			
+			$r = mysql_query("SELECT * FROM `".SITE_PREFIX."_pic` WHERE alb_id = ".$row['id']." ORDER BY `id` desc ");
+			
+			if($row['alb_img'] == 0) 
+				echo "<option value='0' selected>Без картинки\n";
+			else 
+				echo "<option value='0'>Без картинки\n";
+				
+			while($res = mysql_fetch_array($r))
+			{
+				if($row['alb_img'] == $res['id']) 
+					$selected = " selected";
+				else 
+					$selected = " ";
+				echo "<option value='".$res['id']."' ".$selected.">".$res['name']."\n";
+			}
+			?>
+			</select> <span style="font-size:10px;">(название картинки из фотобанка "<a href="/<?=$_VARS['cms_dir'];?>/workplace.php?page=photo&alb_id=<?=$row['id']?>" target="_self"><?=$row['alb_title']?></a>")</span></td>
+		</tr>
+		<tr>
+			<td>Метка альбома</td>
+			<td><select name="alb_mark" >
+			<?			
+			foreach($arrAlbMark as $k => $v)
+			{
+				$sel = "";
+				
+				if($k == $row['alb_mark']) 
+					$sel = " selected ";
+				?>
+				<option value="<?=$k?>" <?=$sel?>><?=$v?></option>
+				<?
+			}
+			?>
+			</select>
+			</td>
+		</tr>
+		
+		
+		<tr>
+			<td>
+				Текст</td><td>
+				<textarea name="alb_text" cols="60" rows="10" ><?=$row['alb_text']?></textarea>
+			</td>
+		</tr>
+	</table>
+			<input type="submit" name="update_item" value="Сохранить" />	
+	</form>
+	<?	
+}
+elseif(isset($add_item))
+{
+?> 
+
+<strong style="padding:20px; display:block">Добавить альбом</strong>
+<form method=post enctype=multipart/form-data action="" name="form2" id="form2"><table>
+	<table>
+		<tr>
+			<td>Название</td>
+			<td>
+			<input type="text" name="alb_title" value="" size="40" />
+			</td>
+		</tr>	
+		<tr>
+			<td>Родительский альбом</td>
+			<td><select name="alb_parent">
+			<?
+			include 'photo_alb_select.php';
+			?></select>
+			</td>
+		</tr>
+		<tr>
+			<td>Текст</td>
+			<td>
+			<textarea style="width:500" name="alb_text"></textarea>
+			</td>
+		</tr>		
+	</table>
+		
+	<input type="submit" name="set_item" value="Добавить" />
+</form>
+<?
+}
+else
+{
+	if(isset($_GET['parent']) && intval($_GET['parent']) > 0)
+		$alb_parent = intval($_GET['parent']);
+	else
+		$alb_parent = 0;
+
+	$sql = "SELECT * FROM `$table_alb` 
+			WHERE alb_parent = ".$alb_parent."
+			ORDER BY alb_order ASC";
+	//echo $sql;
+	$res = mysql_query($sql);
+	?>
+	<fieldset><legend>Фотоальбомы</legend>
+		<a class="serviceLink" href="?page=photo_alb&add_item"><img src='<?=$_ICON["add_item"]?>'>Добавить новый альбом</a>
+		<table cellpadding="5"  class="list">
+			<tr>
+				<th><strong>вверх</strong></th>
+				<th><strong>вниз</strong></th>
+				<th><strong>Название</strong></th>
+				<th><strong>Количество</strong></th>
+				<th><strong>Папка</strong></th>
+				
+				<th><strong>Метка</strong></th>
+				<th><strong>Создан</strong></th>
+				<th><strong>Обновлен</strong></th>
+				<th><strong>edit</strong></th>
+				<th><strong>del</strong></th>				
+			</tr>
+			<?
+			if($res && mysql_num_rows($res) > 0)
+			{
+				while($row = mysql_fetch_array($res))
+				{
+				
+				$sql = "SELECT * FROM `$table_alb`
+						WHERE alb_parent = ".$row['id'];
+				$res1 = mysql_query($sql);
+				if($res1 && mysql_num_rows($res1) > 0)
+					$parent = $row['id'];
+				else
+					$parent = 0;
+				
+				?>
+				<tr>
+					<td align="center"><a href="?page=photo_alb&move&dir=asc&id=<?=$row['id']?>&parent=<?=$alb_parent?>"><img src='<?=$_ICON["down"]?>'></a></td>
+					<td align="center"><a href="?page=photo_alb&move&dir=desc&id=<?=$row['id']?>&parent=<?=$alb_parent?>"><img src='<?=$_ICON["up"]?>'></a></td>	
+					<td><strong style="">
+					
+					
+					<a href="?page=photo&alb_id=<?=$row['id'];?>"><?=$row['alb_title'];?></a>
+					
+					<?
+					if($parent > 0)
+					{
+					?>
+						<a href="?page=photo_alb&parent=<?=$parent?>">(<?=mysql_num_rows($res1)?>)</a>
+					<?
+					}
+					?>
+					
+					
+					</strong></td>
+					<td align="center"><?
+					$sql = "SELECT id, file_ext FROM `".$_VARS['tbl_prefix']."_pic` 
+							WHERE alb_id = ".$row['id'];
+					$res1 = mysql_query($sql);
+					
+					if($res1)
+					{
+						// кол-во картинок в таблице
+						$nDB = mysql_num_rows($res1);
+						echo $nDB;
+						
+						// кол-во картинок физически
+						$i = 0;
+						while($row1 = mysql_fetch_assoc($res1))
+						{
+							$p = $_SERVER['DOCUMENT_ROOT'].'/pic_catalogue/'.$_VARS['tbl_prefix']."_pic_".$row['id'].'/'.$row1['id'].'.'.$row1['file_ext'];
+							/*echo $p;
+							exit;*/
+							if(file_exists($p))
+							{
+								$i++;
+							}
+						}
+						
+						if($nDB != $i)
+							echo "($i)";
+						
+					}
+					else
+						echo '-';
+					?>
+					</td>
+					<td><?="/".$_VARS['tbl_photo_name'].$row['id'];?>
+					<?
+					// проверим существование папки
+						$d = $_SERVER['DOCUMENT_ROOT'].'/pic_catalogue/'.$_VARS['tbl_prefix']."_pic_".$row['id'];
+						if(!is_dir($d))
+						{
+							echo '<br><strong style="color:red">Нет папки!</strong>';
+							$create = mkdir($d);
+							if($create)
+							{
+								echo '<br><strong style="color:green">Создана.</strong>';
+								chmod($d, 0777);
+							}
+							else
+								echo '<br><strong style="color:red">Не создана!</strong>';							
+						}
+							
+					?>
+					
+					</td>
+					<td align="center">
+					<? 
+						if($row['alb_mark'] != 'none' && $row['alb_mark'] != '')
+							echo $arrAlbMark[$row['alb_mark']];
+					?>
+					</td>
+					<td><?=$row['alb_create'];?></td>
+					<td><?=$row['alb_update'];?></td>
+					
+					<td align="center"><a href="?page=photo_alb&edit_item&id=<?=$row['id']?>"><img src='<?=$_ICON["edit"]?>'></a></td>
+					<td align="center"><a href="javascript:if (confirm('Удалить раздел?')){document.location='?page=photo_alb&del_item&alb_id=<?=$row['id']?>'}"><img src='<?=$_ICON["del"]?>'></a></td>
+					
+				</tr>
+				<?
+				}
+			}
+			?>		
+		</table>
+		<a class="serviceLink" href="?page=photo_alb&add_item"><img src='<?=$_ICON["add_item"]?>'>Добавить новый альбом</a>
+	</fieldset>
+	<?
+}
+?>
+</body>
+</html>
